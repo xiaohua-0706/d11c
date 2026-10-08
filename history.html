@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>历史记录</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .hist-card {
+    background: var(--bg-card);
+    margin: 12px;
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    box-shadow: var(--shadow-card);
+  }
+  .hist-card .name { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
+  .hist-card .row-main { display: flex; align-items: center; gap: 12px; }
+  .hist-card .thumbs { display: flex; gap: 6px; padding: 4px 6px; border-right: 1px solid var(--border-soft); margin-right: 8px; }
+  .hist-card .thumbs .thumb { width: 40px; height: 40px; font-size: 20px; border-radius: 8px; background: var(--bg-soft); display: flex; align-items: center; justify-content: center; }
+  .hist-card .meta { flex: 1; }
+  .hist-card .meta .lbl { font-size: 12px; color: var(--text-tertiary); }
+  .hist-card .meta .price { font-size: 18px; font-weight: 700; color: var(--brand-red); margin: 2px 0; }
+  .hist-card .meta .time { font-size: 12px; color: var(--text-tertiary); }
+  .hist-card .row-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .hist-card .btn-restore { flex: 1; height: 40px; font-size: 14px; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .hist-card .btn-del {
+    width: 48px; height: 40px;
+    background: #fff0f0; color: var(--brand-red);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .clear-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: #fff0f0;
+    color: var(--brand-red);
+    border: 1px solid #ffc8d0;
+    border-radius: 10px;
+    height: 48px;
+    font-size: 15px;
+    font-weight: 500;
+    margin: 12px;
+  }
+</style>
+</head>
+<body data-page="history">
+<div class="app">
+  <div id="nav"></div>
+  <div id="root"></div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  (function(){
+    const { store, biz, fmtMoney, escapeHtml, renderNav, ui } = window.D11C;
+  const data = store.get();
+  const history = data.history || [];
+
+  document.getElementById('nav').innerHTML = renderNav({ title: '历史记录', back: 'index.html' });
+
+  function render() {
+    const d = store.get();
+    const h = d.history || [];
+    if (h.length === 0) {
+      document.getElementById('root').innerHTML = `
+        <div class="empty">
+          <span class="emoji">📂</span>
+          <div>暂无历史方案</div>
+          <div class="text-sm mt-8">保存方案后会在这里显示</div>
+        </div>`;
+      return;
+    }
+    document.getElementById('root').innerHTML = h.map(it => `
+      <div class="hist-card">
+        <div class="name">${escapeHtml(it.name)}</div>
+        <div class="row-main">
+          <div class="thumbs">
+            ${(it.thumbs || ['🛍️', '🛍️', '🛍️']).slice(0, 3).map(t => `<div class="thumb">${t}</div>`).join('')}
+          </div>
+          <div class="meta">
+            <div class="lbl">实付金额</div>
+            <div class="price">${fmtMoney(it.amount)}</div>
+            <div class="time">保存时间 ${escapeHtml(it.time)}</div>
+          </div>
+        </div>
+        <div class="row-actions">
+          <button class="btn btn-outline btn-restore" data-id="${it.id}" data-act="restore">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z" fill="currentColor"/></svg>
+            恢复此方案
+          </button>
+          <button class="btn-del" data-id="${it.id}" data-act="del">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
+          </button>
+        </div>
+      </div>
+    `).join('') + `
+      <button class="clear-btn" data-act="clearAll">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
+        清空全部历史记录
+      </button>
+    `;
+    bind();
+  }
+
+  function bind() {
+    document.querySelectorAll('[data-act="restore"]').forEach(b => b.addEventListener('click', () => {
+      const ok = biz.restoreHistory(b.dataset.id);
+      if (ok) {
+        ui.toast('已恢复方案', 'success');
+        setTimeout(() => location.href = 'index.html', 400);
+      } else {
+        ui.toast('恢复失败', 'error');
+      }
+    }));
+    document.querySelectorAll('[data-act="del"]').forEach(b => b.addEventListener('click', async () => {
+      const ok = await ui.confirm({ title: '确定要删除吗？', desc: '删除后该数据将无法恢复', confirmText: '确认删除', danger: true });
+      if (ok) { biz.deleteHistory(b.dataset.id); render(); }
+    }));
+    document.querySelector('[data-act="clearAll"]')?.addEventListener('click', async () => {
+      const ok = await ui.confirm({ title: '清空全部历史记录？', desc: '所有保存的方案都将被删除，无法恢复', confirmText: '确认清空', danger: true });
+      if (ok) { biz.clearHistory(); render(); }
+    });
+  }
+
+  render();
+  })();
+</script>
+</body>
+</html>

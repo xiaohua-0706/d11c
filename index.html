@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>双11凑单计算器</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .banner {
+    margin: 12px 12px 0;
+    height: 130px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #c5dbff 0%, #e8f1ff 60%, #f5e7f3 100%);
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    display: flex; align-items: center;
+  }
+  .banner::before {
+    content: '省钱！';
+    position: absolute;
+    right: 18px; top: 16px;
+    font-size: 12px; color: #fff;
+    background: var(--brand-pink);
+    padding: 2px 8px;
+    border-radius: 12px;
+    transform: rotate(8deg);
+  }
+  .banner::after {
+    content: '🛒 🛍️ 🎁';
+    position: absolute;
+    right: 14px; bottom: 12px;
+    font-size: 22px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+  }
+  .banner .label2025 {
+    position: absolute;
+    left: 18px; top: 18px;
+    font-size: 12px; color: var(--brand-blue);
+    font-weight: 500;
+  }
+  .banner .title {
+    position: absolute;
+    left: 18px; top: 40px;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: 1px;
+  }
+  .banner .sub {
+    position: absolute;
+    left: 18px; top: 84px;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .item-card {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    margin: 0 12px 12px;
+    box-shadow: var(--shadow-card);
+    position: relative;
+  }
+  .item-card .info { flex: 1; min-width: 0; }
+  .item-card .name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .item-card .row1 {
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 6px;
+  }
+  .item-card .row1 .price { font-size: 16px; font-weight: 600; color: var(--brand-red); }
+  .item-card .row1 .qty-text { font-size: 13px; color: var(--text-tertiary); }
+  .item-card .shop {
+    font-size: 12px; color: var(--text-secondary);
+    display: flex; align-items: center; gap: 4px;
+    margin-bottom: 6px;
+  }
+  .item-card .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .item-card .actions {
+    position: absolute;
+    right: 12px; top: 12px;
+    display: flex; gap: 8px;
+  }
+  .item-card .actions button {
+    width: 28px; height: 28px;
+    color: var(--text-tertiary);
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+  }
+  .item-card .actions button:active { background: var(--bg-soft); }
+
+  .add-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: linear-gradient(180deg, #3b8aff 0%, #2b7bff 100%);
+    color: #fff;
+    border-radius: var(--radius-lg);
+    height: 52px;
+    margin: 0 12px 12px;
+    font-size: 15px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(43, 123, 255, 0.25);
+  }
+  .add-btn:active { opacity: 0.92; }
+
+  .action-row {
+    display: flex; gap: 8px;
+    margin: 0 12px 12px;
+  }
+  .action-row .btn {
+    flex: 1;
+    height: 48px;
+    font-size: 14px;
+    border-radius: 12px;
+  }
+
+  .history-card { padding: 14px 16px; }
+  .history-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-soft-2);
+  }
+  .history-row:last-child { border-bottom: none; }
+  .history-row .name { font-size: 14px; color: var(--text-primary); flex: 1; }
+  .history-row .amt { color: var(--brand-red); font-weight: 600; margin: 0 12px; }
+  .history-row .time { color: var(--text-tertiary); font-size: 12px; min-width: 80px; text-align: right; }
+  .disclaimer {
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    padding: 12px;
+    margin: 0 12px;
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+  }
+</style>
+</head>
+<body data-page="index">
+<div class="app" id="app">
+  <div class="banner">
+    <div class="label2025">2025</div>
+    <div class="title">双11凑单计算器</div>
+    <div class="sub">精打细算 · 买得更划算</div>
+  </div>
+
+  <div id="root"></div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  (function(){
+    const { store, biz, fmt, fmtMoney, escapeHtml, ui, engine, demo } = window.D11C;
+
+    // 首次进入：store.get() 会自动预置演示数据
+    if (demo.isFirst()) {
+      setTimeout(() => ui.toast('👋 已为您加载演示数据，您可以直接体验或清空后录入自己的商品', 'success'), 400);
+    }
+
+    function getItemChips(item, coupons) {
+      const chips = [];
+      chips.push(item.type === 'tianmao'
+        ? `<span class="chip chip-tianmao">天猫</span>`
+        : `<span class="chip chip-cshop">C店</span>`);
+      const sc = (coupons.shopCoupons || []).find(c => c.shop === item.shop);
+      if (sc) {
+        const label = sc.type === 'ladder'
+          ? sc.rules.map(r => `${r.threshold}件减${r.reduce}`).join('/')
+          : sc.rules.map(r => `满${r.threshold}减${r.reduce}`).join('/');
+        chips.push(`<span class="chip chip-orange">可用${label}</span>`);
+      }
+      if (item.presale) chips.push(`<span class="chip chip-pink">预售</span>`);
+      const cc = (coupons.catCoupons || []).find(c => c.category === item.category);
+      if (cc) chips.push(`<span class="chip chip-blue">可用品类券</span>`);
+      return chips.join('');
+    }
+
+    function render() {
+      const d = store.get();
+      const items = d.items;
+      const coupons = d.coupons;
+      const history = d.history.slice(0, 3);
+      const total = items.reduce((s, it) => s + Number(it.price || 0) * Number(it.qty || 1), 0);
+
+      const itemsHtml = items.length === 0
+        ? `<div class="empty"><span class="emoji">🛒</span><div>还没有商品</div><div class="text-sm mt-8">点击下方"添加商品"开始</div></div>`
+        : items.map(it => `
+          <div class="item-card" data-id="${it.id}">
+            <div class="thumb">${it.thumb || '🛍️'}</div>
+            <div class="info">
+              <div class="name">${escapeHtml(it.name)}</div>
+              <div class="row1">
+                <span class="price">${fmtMoney(it.price)}</span>
+                <span class="qty-text">× ${it.qty || 1}</span>
+              </div>
+              <div class="shop">🏪 ${escapeHtml(it.shop || '未设置店铺')}</div>
+              <div class="chips">${getItemChips(it, coupons)}</div>
+            </div>
+            <div class="actions">
+              <button data-act="edit" aria-label="编辑">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/></svg>
+              </button>
+              <button data-act="del" aria-label="删除">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
+              </button>
+            </div>
+          </div>
+        `).join('');
+
+      const historyHtml = history.length === 0
+        ? `<div class="empty" style="padding:20px"><div class="text-sm">暂无历史方案</div></div>`
+        : history.map(h => `
+          <div class="history-row">
+            <div class="name">${escapeHtml(h.name)}</div>
+            <div class="amt">实付 ${fmtMoney(h.amount)}</div>
+            <div class="time">${escapeHtml(h.time)}</div>
+          </div>
+        `).join('');
+
+      document.getElementById('root').innerHTML = `
+        <div class="card" style="margin-top:12px">
+          <div class="row-between">
+            <div class="text-bold text-lg">当前订单商品（${items.length}）</div>
+            <div class="text-sm text-gray">合计：<span class="text-price text-bold text-lg">${fmtMoney(total)}</span></div>
+          </div>
+        </div>
+        <div id="itemList">${itemsHtml}</div>
+        <a class="add-btn" href="edit.html">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+          添加商品
+        </a>
+        <div class="action-row">
+          <a class="btn btn-outline" href="coupons.html">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 10V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v4a2 2 0 0 1 0 4v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4a2 2 0 0 1 0-4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 8v8M17 8v8" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"/></svg>
+            配置我的优惠
+          </a>
+          <a class="btn btn-primary" href="result.html">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 3h18v18H3z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 8h10M7 12h10M7 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            开始计算 & 生成凑单方案
+          </a>
+        </div>
+        <div class="card history-card">
+          <div class="row-between" style="margin-bottom:6px">
+            <div class="text-bold text-lg">最近3条历史方案</div>
+            <a href="history.html" class="text-blue text-sm">更多 ›</a>
+          </div>
+          ${historyHtml}
+        </div>
+        <div class="disclaimer">
+          <span style="color:#ff8a3d">⚠️</span> 本工具仅供估算，最终价格以淘宝结算页为准
+        </div>
+      `;
+
+      document.querySelectorAll('.item-card').forEach(card => {
+        const id = card.dataset.id;
+        card.querySelector('[data-act="edit"]').addEventListener('click', (e) => {
+          e.stopPropagation();
+          location.href = 'edit.html?id=' + encodeURIComponent(id);
+        });
+        card.querySelector('[data-act="del"]').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const ok = await ui.confirm({ title: '确定要删除吗？', desc: '删除后该数据将无法恢复，是否确认删除？', confirmText: '确认删除', danger: true });
+          if (ok) {
+            biz.deleteItem(id);
+            ui.toast('已删除', 'success');
+            render();
+          }
+        });
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', render);
+    } else {
+      render();
+    }
+  })();
+</script>
+</body>
+</html>

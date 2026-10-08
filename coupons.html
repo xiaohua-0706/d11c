@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>我的优惠配置</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .section { background: var(--bg-card); border-radius: var(--radius-lg); padding: 14px 16px; margin: 0 12px 12px; box-shadow: var(--shadow-card); }
+  .section-head { margin-bottom: 10px; }
+  .section-head .ico { background: linear-gradient(135deg, #ff8fa3, #ff5e7e); }
+  .new-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--brand-blue);
+    font-size: 13px;
+    background: var(--bg-card);
+    border: 1px solid var(--brand-blue);
+    padding: 4px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+  .coupon-card {
+    background: var(--bg-soft);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+  .coupon-card .head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .coupon-card .shop-name { font-size: 14px; font-weight: 600; }
+  .coupon-card .type-tag {
+    font-size: 11px;
+    padding: 2px 6px;
+    background: var(--bg-orange-soft);
+    color: var(--brand-orange);
+    border-radius: 4px;
+    margin-left: 6px;
+  }
+  .coupon-card .type-tag.gray { background: #eef0f5; color: var(--text-tertiary); }
+  .coupon-card .badge-new {
+    position: absolute;
+    right: 0; top: -6px;
+    background: var(--brand-pink);
+    color: #fff;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px 10px 10px 0;
+  }
+  .coupon-card .rules { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+  .coupon-card .rule-chip {
+    font-size: 12px;
+    padding: 2px 8px;
+    background: var(--bg-pink-soft);
+    color: var(--brand-red);
+    border-radius: 4px;
+  }
+  .coupon-card .note { font-size: 12px; color: var(--text-tertiary); }
+  .coupon-card .actions { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; }
+  .coupon-card .actions button {
+    width: 28px; height: 28px;
+    color: var(--text-tertiary);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .coupon-card .actions button:active { background: #e6ecf5; }
+
+  .redpkt {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 4px 0;
+  }
+  .redpkt .pkt {
+    display: flex; align-items: center; gap: 4px;
+    background: var(--bg-pink-soft);
+    color: var(--brand-red);
+    padding: 4px 10px 4px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+  }
+  .redpkt .pkt .del {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #ffd6df;
+    color: var(--brand-red);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    margin-left: 2px;
+  }
+
+  .footer-btns { display: flex; gap: 8px; padding: 12px; }
+  .footer-btns .btn { flex: 1; height: 48px; font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="nav"></div>
+  <div id="root"></div>
+  <div class="footer-btns">
+    <a class="btn btn-outline" href="index.html">返回首页</a>
+    <button class="btn btn-primary" id="btnSave">保存优惠配置</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  (function(){
+  const { store, biz, fmt, fmtMoney, escapeHtml, renderNav, ui, groupBy, engine } = window.D11C;
+  const data = store.get();
+  const coupons = JSON.parse(JSON.stringify(data.coupons));
+
+  document.getElementById('nav').innerHTML = renderNav({ title: '我的优惠配置', back: 'index.html' });
+
+  function getShopSub(shop) {
+    return data.items.filter(i => i.shop === shop)
+      .reduce((s, it) => s + Number(it.price || 0) * Number(it.qty || 1), 0);
+  }
+  function getCatSub(cat) {
+    return data.items.filter(i => i.category === cat)
+      .reduce((s, it) => s + Number(it.price || 0) * Number(it.qty || 1), 0);
+  }
+
+  function renderShopCoupons() {
+    if (!coupons.shopCoupons.length) {
+      return `<div class="empty" style="padding:14px;font-size:13px">尚未添加店铺券</div>`;
+    }
+    return coupons.shopCoupons.map((sc, idx) => {
+      const shopSub = getShopSub(sc.shop);
+      const shopQty = data.items.filter(i => i.shop === sc.shop).reduce((s, it) => s + Number(it.qty || 1), 0);
+      const rules = sc.rules || [];
+      const isLadder = sc.type === 'ladder';
+      const note = isLadder
+        ? rules.map(r => `${r.threshold >= 100 ? '满¥'+r.threshold : r.threshold}件减${r.reduce}`).join(' | ')
+        : rules.map(r => `满${r.threshold}减${r.reduce}`).join(' | ');
+      // 凑单注脚
+      const ok = isLadder
+        ? shopQty >= Math.min(...rules.map(r => r.threshold))
+        : shopSub >= Math.min(...rules.map(r => r.threshold));
+      let subNote = '';
+      if (isLadder) {
+        if (rules.length > 1) {
+          subNote = `当前店铺有${rules.length}种券，凑单时将自动选择最优减${Math.max(...rules.map(r => r.reduce))}`;
+        } else if (rules[0]) {
+          subNote = ok ? '已满足门槛' : `再${Math.min(...rules.map(r => r.threshold)) - shopQty}件可触发`;
+        }
+      } else {
+        if (rules[0]) {
+          const gap = Math.min(...rules.map(r => r.threshold)) - shopSub;
+          subNote = gap > 0 ? `当前店铺有 ${Math.min(...rules.map(r => r.threshold))} 减 ${rules[0].reduce}，凑单差 ¥${fmt(gap)} 可用` : '已满足';
+        }
+      }
+      return `
+        <div class="coupon-card">
+          ${idx === 0 && data.hasInitDemo && sc.shop === '瑞特旗舰店' ? '<div class="badge-new">V1.1 新增</div>' : ''}
+          <div class="head">
+            <div>
+              <span class="shop-name">${escapeHtml(sc.shop)}</span>
+              <span class="type-tag">${isLadder ? '阶梯件数券' : '金额满减券'}</span>
+            </div>
+          </div>
+          <div class="rules">${rules.map(r => `<span class="rule-chip">${isLadder ? (r.threshold >= 100 ? '满¥'+r.threshold : r.threshold+'件') : '满'+r.threshold}减${r.reduce}</span>`).join('')}</div>
+          <div class="note">${escapeHtml(subNote || '当前已配置')}</div>
+          <div class="actions">
+            <button data-act="edit" data-i="${idx}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/></svg>
+            </button>
+            <button data-act="del" data-i="${idx}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderCatCoupons() {
+    if (!coupons.catCoupons.length) {
+      return `<div class="empty" style="padding:14px;font-size:13px">尚未添加品类券</div>`;
+    }
+    return coupons.catCoupons.map((cc, idx) => {
+      const sub = getCatSub(cc.category);
+      const ok = sub >= cc.threshold;
+      return `
+        <div class="coupon-card">
+          <div class="head">
+            <div>
+              <span class="shop-name">${escapeHtml(cc.category)}</span>
+              <span class="type-tag gray">满减券</span>
+            </div>
+          </div>
+          <div class="rules"><span class="rule-chip">满${cc.threshold}减${cc.reduce}</span></div>
+          <div class="note">${ok ? `当前类目有 ¥${fmt(sub)}，已满足门槛` : `类目合计 ¥${fmt(sub)}，未达门槛`}</div>
+          <div class="actions">
+            <button data-act="editCat" data-i="${idx}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/></svg>
+            </button>
+            <button data-act="delCat" data-i="${idx}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderShopCoins() {
+    if (!coupons.shopCoins.length) {
+      return `<div class="empty" style="padding:14px;font-size:13px">尚未添加购物金</div>`;
+    }
+    return coupons.shopCoins.map((c, idx) => `
+      <div class="row-between" style="padding:10px 0;border-bottom:1px solid var(--border-soft-2)">
+        <div class="text-bold">${escapeHtml(c.shop)}</div>
+        <div class="row gap-8">
+          <span class="text-sm text-gray">余额</span>
+          <span class="text-green text-bold">¥${fmt(c.balance)}</span>
+          <button data-act="editCoin" data-i="${idx}" style="color:var(--text-tertiary);width:24px;height:24px;display:flex;align-items:center;justify-content:center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/></svg>
+          </button>
+          <button data-act="delCoin" data-i="${idx}" style="color:var(--text-tertiary);width:24px;height:24px;display:flex;align-items:center;justify-content:center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function render() {
+    document.getElementById('root').innerHTML = `
+      <!-- 店铺券 -->
+      <div class="section">
+        <div class="section-head row-between">
+          <div class="row gap-8">
+            <div class="ico ico-shop">🏬</div>
+            <div>
+              <div class="text-bold text-lg">店铺券</div>
+              <div class="text-sm text-gray">同店铺的券互斥，自动选择最优</div>
+            </div>
+          </div>
+          <button class="new-btn" data-act="addShop">+ 新增店铺券</button>
+        </div>
+        ${renderShopCoupons()}
+      </div>
+
+      <!-- 品类券 -->
+      <div class="section">
+        <div class="section-head row-between">
+          <div class="row gap-8">
+            <div class="ico ico-cat">🎟</div>
+            <div>
+              <div class="text-bold text-lg">品类券</div>
+              <div class="text-sm text-gray">按类目合并计算</div>
+            </div>
+          </div>
+          <button class="new-btn" data-act="addCat">+ 新增品类券</button>
+        </div>
+        ${renderCatCoupons()}
+      </div>
+
+      <!-- 88VIP -->
+      <div class="section">
+        <div class="section-head row-between">
+          <div class="row gap-8">
+            <div class="ico ico-vip">👑</div>
+            <div class="text-bold text-lg">88VIP 9折券</div>
+          </div>
+          <div class="row gap-8">
+            <span class="text-sm text-gray">${coupons.vip.enabled ? '已开通88VIP' : '未开通'}</span>
+            <div class="switch ${coupons.vip.enabled ? 'on' : ''}" data-act="vip"></div>
+          </div>
+        </div>
+        <div class="row-between" style="padding:4px 0 0">
+          <div class="text-sm">选择券面额</div>
+          <div class="row gap-8">
+            <select id="vipSel" class="text-bold" style="border:none;background:transparent;font-size:14px;color:var(--brand-blue);font-weight:600">
+              <option ${coupons.vip.denom === 150 ? 'selected' : ''}>150元</option>
+              <option ${coupons.vip.denom === 100 ? 'selected' : ''}>100元</option>
+              <option ${coupons.vip.denom === 50 ? 'selected' : ''}>50元</option>
+            </select>
+            <span>▾</span>
+          </div>
+        </div>
+        <div class="text-sm text-gray" style="margin-top:6px">订单享9折，最高减${coupons.vip.denom}元</div>
+      </div>
+
+      <!-- 红包 -->
+      <div class="section">
+        <div class="section-head row-between">
+          <div class="row gap-8">
+            <div class="ico ico-red">🧧</div>
+            <div class="text-bold text-lg">红包 <span class="text-sm text-gray font-normal">（最多10个）</span></div>
+          </div>
+          <button class="new-btn" data-act="addRed">+ 新增红包</button>
+        </div>
+        <div class="redpkt">
+          ${coupons.redPackets.map((p, i) => `
+            <div class="pkt">¥${fmt(p.value)}<span class="del" data-act="delRed" data-i="${i}">🗑</span></div>
+          `).join('')}
+        </div>
+        <div class="text-sm text-gray" style="text-align:right;margin-top:4px">${coupons.redPackets.length}/10</div>
+      </div>
+
+      <!-- 店铺购物金 -->
+      <div class="section">
+        <div class="section-head row-between">
+          <div class="row gap-8">
+            <div class="ico ico-coin">💰</div>
+            <div>
+              <div class="text-bold text-lg">店铺购物金</div>
+              <div class="text-sm text-gray">按店铺独立</div>
+            </div>
+          </div>
+          <button class="new-btn" data-act="addCoin">+ 新增购物金</button>
+        </div>
+        ${renderShopCoins()}
+      </div>
+
+      <!-- 淘金币 -->
+      <div class="section" style="display:flex;align-items:center;gap:8px">
+        <div class="ico ico-gold">🟡</div>
+        <div class="text-bold text-lg" style="white-space:nowrap">淘金币</div>
+        <div style="flex:1"></div>
+        <div class="text-sm text-gray" style="white-space:nowrap">可抵扣</div>
+        <div class="input" style="width:110px;height:36px;flex-shrink:0">
+          <span class="prefix">¥</span>
+          <input type="number" inputmode="decimal" id="goldInput" value="${coupons.goldCoin || 0}" style="text-align:right;min-width:0;width:100%">
+        </div>
+      </div>
+    `;
+    bind();
+  }
+
+  function bind() {
+    document.querySelectorAll('[data-act="addShop"]').forEach(b => b.addEventListener('click', () => {
+      // 弹窗：选择已有店铺 or 新建
+      const shops = Array.from(new Set(data.items.map(i => i.shop).filter(Boolean)));
+      shops.push('__new__');
+      const buttons = shops.map(s => s === '__new__' ? '<button class="btn btn-outline" data-shop="__new__">+ 自定义店铺</button>' : `<button class="btn btn-outline" data-shop="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('');
+      showModal({
+        title: '选择店铺', desc: '为该店铺添加店铺券', content: `<div class="grid" style="display:flex;flex-wrap:wrap;gap:8px">${buttons}</div>`
+      });
+    }));
+
+    document.querySelectorAll('[data-act="addCat"]').forEach(b => b.addEventListener('click', () => {
+      const cats = Array.from(new Set(data.items.map(i => i.category).filter(Boolean)));
+      cats.push('__new__');
+      const buttons = cats.map(c => c === '__new__' ? '<button class="btn btn-outline" data-cat="__new__">+ 自定义类目</button>' : `<button class="btn btn-outline" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join('');
+      showModal({
+        title: '选择类目', desc: '为该类目添加品类券', content: `<div class="grid" style="display:flex;flex-wrap:wrap;gap:8px">${buttons}</div>`
+      });
+    }));
+
+    document.querySelectorAll('[data-act="addRed"]').forEach(b => b.addEventListener('click', () => {
+      if (coupons.redPackets.length >= 10) { ui.toast('最多录入10个红包', 'error'); return; }
+      showModal({
+        title: '新增红包', desc: '请输入红包金额',
+        content: `<div class="input" style="height:40px"><span class="prefix">¥</span><input type="number" inputmode="decimal" id="rpVal" placeholder="如 5"></div>
+                  <button class="btn btn-primary btn-block mt-12" id="rpOk">确认添加</button>`
+      });
+    }));
+
+    document.querySelectorAll('[data-act="addCoin"]').forEach(b => b.addEventListener('click', () => {
+      const shops = Array.from(new Set(data.items.map(i => i.shop).filter(Boolean)));
+      shops.push('__new__');
+      const buttons = shops.map(s => s === '__new__' ? '<button class="btn btn-outline" data-coin="__new__">+ 自定义店铺</button>' : `<button class="btn btn-outline" data-coin="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('');
+      showModal({
+        title: '选择店铺', desc: '为该店铺设置购物金余额', content: `<div class="grid" style="display:flex;flex-wrap:wrap;gap:8px">${buttons}</div>`
+      });
+    }));
+
+    document.querySelectorAll('[data-act="del"]').forEach(b => b.addEventListener('click', async () => {
+      const i = +b.dataset.i;
+      const ok = await ui.confirm({ title: '确定要删除吗？', desc: '删除后该数据将无法恢复', confirmText: '确认删除', danger: true });
+      if (ok) { coupons.shopCoupons.splice(i, 1); render(); }
+    }));
+    document.querySelectorAll('[data-act="delCat"]').forEach(b => b.addEventListener('click', async () => {
+      const i = +b.dataset.i;
+      const ok = await ui.confirm({ title: '确定要删除吗？', desc: '删除后该数据将无法恢复', confirmText: '确认删除', danger: true });
+      if (ok) { coupons.catCoupons.splice(i, 1); render(); }
+    }));
+    document.querySelectorAll('[data-act="editCat"]').forEach(b => b.addEventListener('click', () => {
+      const i = +b.dataset.i;
+      const cur = coupons.catCoupons[i];
+      if (cur) openCatCouponEditor(cur.category, i);
+    }));
+    document.querySelectorAll('[data-act="delRed"]').forEach(b => b.addEventListener('click', () => {
+      coupons.redPackets.splice(+b.dataset.i, 1);
+      render();
+    }));
+    document.querySelectorAll('[data-act="delCoin"]').forEach(b => b.addEventListener('click', async () => {
+      const i = +b.dataset.i;
+      const ok = await ui.confirm({ title: '确定要删除吗？', desc: '删除后该数据将无法恢复', confirmText: '确认删除', danger: true });
+      if (ok) { coupons.shopCoins.splice(i, 1); render(); }
+    }));
+    document.querySelectorAll('[data-act="editCoin"]').forEach(b => b.addEventListener('click', () => {
+      const i = +b.dataset.i;
+      const cur = coupons.shopCoins[i];
+      if (cur) openShopCoinEditor(cur.shop, i);
+    }));
+
+    document.querySelectorAll('[data-act="vip"]').forEach(s => s.addEventListener('click', () => {
+      coupons.vip.enabled = !coupons.vip.enabled;
+      render();
+    }));
+
+    document.getElementById('vipSel')?.addEventListener('change', (e) => {
+      coupons.vip.denom = Number(e.target.value);
+      document.querySelector('.section:last-of-type .text-sm.text-gray').textContent = `订单享9折，最高减${coupons.vip.denom}元`;
+    });
+    document.getElementById('goldInput')?.addEventListener('input', (e) => {
+      const v = Number(e.target.value);
+      if (v < 0) { ui.toast('金额不能为负数', 'error'); e.target.value = 0; coupons.goldCoin = 0; return; }
+      coupons.goldCoin = v;
+    });
+  }
+
+  function showModal({ title, desc, content }) {
+    const mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML = `<div class="modal" style="text-align:left">
+      <div class="modal-title" style="text-align:center">${escapeHtml(title)}</div>
+      ${desc ? `<div class="modal-desc" style="text-align:center">${escapeHtml(desc)}</div>` : ''}
+      <div>${content}</div>
+      <div class="modal-actions mt-12"><button class="btn btn-ghost" data-act="close">取消</button></div>
+    </div>`;
+    document.body.appendChild(mask);
+
+    // 绑定内部按钮
+    mask.addEventListener('click', (e) => {
+      if (e.target.closest('[data-act="close"]') || e.target === mask) { mask.remove(); return; }
+      const shop = e.target.closest('[data-shop]');
+      if (shop) { mask.remove(); openShopCouponEditor(shop.dataset.shop); return; }
+      const cat = e.target.closest('[data-cat]');
+      if (cat) { mask.remove(); openCatCouponEditor(cat.dataset.cat); return; }
+      const coin = e.target.closest('[data-coin]');
+      if (coin) { mask.remove(); openShopCoinEditor(coin.dataset.coin); return; }
+      if (e.target.id === 'rpOk') {
+        const v = Number(mask.querySelector('#rpVal').value);
+        if (!v || v <= 0) { ui.toast('请输入正确的金额', 'error'); return; }
+        coupons.redPackets.push({ id: Date.now().toString(36), value: v });
+        mask.remove();
+        render();
+      }
+    });
+  }
+
+  function openShopCouponEditor(shop) {
+    if (shop === '__new__') {
+      // 弹窗输入店铺名
+      const m = document.createElement('div');
+      m.className = 'modal-mask';
+      m.innerHTML = `<div class="modal" style="text-align:left">
+        <div class="modal-title" style="text-align:center">输入店铺名</div>
+        <div class="input" style="height:40px"><input id="shopNew" placeholder="如：瑞特旗舰店" maxlength="20"></div>
+        <div class="modal-actions mt-12">
+          <button class="btn btn-ghost" data-cancel>取消</button>
+          <button class="btn btn-primary" id="shopOk">确定</button>
+        </div>
+      </div>`;
+      document.body.appendChild(m);
+      m.addEventListener('click', (e) => {
+        if (e.target.closest('[data-cancel]') || e.target === m) { m.remove(); return; }
+        if (e.target.id === 'shopOk') {
+          const v = m.querySelector('#shopNew').value.trim();
+          if (!v) { ui.toast('请输入店铺名', 'error'); return; }
+          m.remove();
+          openShopCouponEditor(v);
+        }
+      });
+      return;
+    }
+    // 编辑券规则
+    const m = document.createElement('div');
+    m.className = 'modal-mask';
+    m.innerHTML = `<div class="modal" style="text-align:left;max-width:340px">
+      <div class="modal-title" style="text-align:center">${escapeHtml(shop)} 的店铺券</div>
+      <div class="text-sm text-gray" style="margin-bottom:8px">券类型</div>
+      <div class="radio-group" style="margin-bottom:12px">
+        <div class="radio on" data-coupon-type="ladder">阶梯件数券</div>
+        <div class="radio" data-coupon-type="amount">金额满减券</div>
+      </div>
+      <div id="rulesBox" class="text-sm"></div>
+      <div class="modal-actions mt-12">
+        <button class="btn btn-ghost" data-cancel>取消</button>
+        <button class="btn btn-primary" id="saveCoup">保存</button>
+      </div>
+    </div>`;
+    document.body.appendChild(m);
+    let curType = 'ladder';
+    const rules = [{ threshold: 1, reduce: 10 }];
+
+    function renderRules() {
+      m.querySelector('#rulesBox').innerHTML = `
+        <div style="background:var(--bg-soft);padding:10px;border-radius:10px">
+          ${rules.map((r, i) => `
+            <div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed var(--border-soft)">
+              <div class="row gap-6" style="margin-bottom:6px">
+                <span class="text-sm" style="color:var(--text-tertiary);width:60px">满</span>
+                <div class="input" style="flex:1;height:30px"><input type="number" data-i="${i}" data-k="threshold" value="${r.threshold}"></div>
+                <span class="text-sm" style="color:var(--text-tertiary)">${curType === 'ladder' ? '件' : '元'}</span>
+              </div>
+              <div class="row gap-6">
+                <span class="text-sm" style="color:var(--text-tertiary);width:60px">减</span>
+                <div class="input" style="flex:1;height:30px"><span class="prefix">¥</span><input type="number" data-i="${i}" data-k="reduce" value="${r.reduce}"></div>
+                ${rules.length > 1 ? `<button data-del="${i}" style="color:var(--brand-red);width:28px;height:28px;background:#fff0f0;border-radius:6px;font-size:14px">×</button>` : '<span style="width:28px"></span>'}
+              </div>
+            </div>
+          `).join('')}
+          <button id="addRule" class="btn btn-ghost btn-block" style="height:32px;margin-top:4px">+ 添加一档</button>
+        </div>`;
+      m.querySelectorAll('input[data-k]').forEach(inp => {
+        inp.addEventListener('input', (e) => {
+          rules[+e.target.dataset.i][e.target.dataset.k] = Number(e.target.value) || 0;
+        });
+      });
+      m.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+        rules.splice(+b.dataset.del, 1);
+        renderRules();
+      }));
+      m.querySelector('#addRule')?.addEventListener('click', () => {
+        const last = rules[rules.length - 1] || { threshold: 1, reduce: 10 };
+        rules.push({ threshold: last.threshold + 1, reduce: last.reduce + 10 });
+        renderRules();
+      });
+    }
+    renderRules();
+
+    m.querySelectorAll('[data-coupon-type]').forEach(r => r.addEventListener('click', () => {
+      m.querySelectorAll('[data-coupon-type]').forEach(x => x.classList.remove('on'));
+      r.classList.add('on');
+      curType = r.dataset.couponType;
+      rules.length = 0;
+      rules.push({ threshold: 1, reduce: 10 });
+      renderRules();
+    }));
+
+    m.addEventListener('click', (e) => {
+      if (e.target.closest('[data-cancel]') || e.target === m) { m.remove(); return; }
+      if (e.target.id === 'saveCoup') {
+        coupons.shopCoupons.push({ id: Date.now().toString(36), shop, type: curType, rules });
+        m.remove();
+        render();
+      }
+    });
+  }
+
+  function openCatCouponEditor(cat, editIdx) {
+    if (cat === '__new__') {
+      const m = document.createElement('div');
+      m.className = 'modal-mask';
+      m.innerHTML = `<div class="modal" style="text-align:left">
+        <div class="modal-title" style="text-align:center">输入类目名</div>
+        <div class="input" style="height:40px"><input id="catNew" placeholder="如：美妆护肤" maxlength="20"></div>
+        <div class="modal-actions mt-12">
+          <button class="btn btn-ghost" data-cancel>取消</button>
+          <button class="btn btn-primary" id="catOk">确定</button>
+        </div>
+      </div>`;
+      document.body.appendChild(m);
+      m.addEventListener('click', (e) => {
+        if (e.target.closest('[data-cancel]') || e.target === m) { m.remove(); return; }
+        if (e.target.id === 'catOk') {
+          const v = m.querySelector('#catNew').value.trim();
+          if (!v) { ui.toast('请输入类目', 'error'); return; }
+          m.remove();
+          openCatCouponEditor(v, editIdx);
+        }
+      });
+      return;
+    }
+    const editMode = typeof editIdx === 'number';
+    const cur = editMode ? coupons.catCoupons[editIdx] : null;
+    const initTh = cur ? cur.threshold : 300;
+    const initRe = cur ? cur.reduce : 50;
+    const m = document.createElement('div');
+    m.className = 'modal-mask';
+    m.innerHTML = `<div class="modal" style="text-align:left">
+      <div class="modal-title" style="text-align:center">${escapeHtml(cat)} 的品类券</div>
+      <div style="margin:12px 0">
+        <div class="row gap-6" style="margin-bottom:8px">
+          <span class="text-sm" style="color:var(--text-tertiary);width:50px">满</span>
+          <div class="input" style="flex:1;height:34px"><input type="number" id="cTh" value="${initTh}" placeholder="如 300"></div>
+          <span class="text-sm" style="color:var(--text-tertiary)">元</span>
+        </div>
+        <div class="row gap-6">
+          <span class="text-sm" style="color:var(--text-tertiary);width:50px">减</span>
+          <div class="input" style="flex:1;height:34px"><span class="prefix">¥</span><input type="number" id="cRe" value="${initRe}" placeholder="如 50"></div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-cancel>取消</button>
+        <button class="btn btn-primary" id="catSave">保存</button>
+      </div>
+    </div>`;
+    document.body.appendChild(m);
+    m.addEventListener('click', (e) => {
+      if (e.target.closest('[data-cancel]') || e.target === m) { m.remove(); return; }
+      if (e.target.id === 'catSave') {
+        const th = Number(m.querySelector('#cTh').value);
+        const re = Number(m.querySelector('#cRe').value);
+        if (!th || th <= 0 || !re || re <= 0) { ui.toast('请输入正确的金额', 'error'); return; }
+        if (editMode) {
+          coupons.catCoupons[editIdx].threshold = th;
+          coupons.catCoupons[editIdx].reduce = re;
+        } else {
+          coupons.catCoupons.push({ id: Date.now().toString(36), category: cat, threshold: th, reduce: re });
+        }
+        m.remove();
+        render();
+      }
+    });
+  }
+
+  function openShopCoinEditor(shop, editIdx) {
+    if (shop === '__new__') {
+      const m = document.createElement('div');
+      m.className = 'modal-mask';
+      m.innerHTML = `<div class="modal" style="text-align:left">
+        <div class="modal-title" style="text-align:center">输入店铺名</div>
+        <div class="input" style="height:40px"><input id="sn2" placeholder="如：Apple Store 官方旗舰店" maxlength="20"></div>
+        <div class="modal-actions mt-12">
+          <button class="btn btn-ghost" data-cancel>取消</button>
+          <button class="btn btn-primary" id="sn2ok">确定</button>
+        </div>
+      </div>`;
+      document.body.appendChild(m);
+      m.addEventListener('click', (e) => {
+        if (e.target.closest('[data-cancel]') || e.target === m) { m.remove(); return; }
+        if (e.target.id === 'sn2ok') {
+          const v = m.querySelector('#sn2').value.trim();
+          if (!v) { ui.toast('请输入店铺名', 'error'); return; }
+          m.remove();
+          openShopCoinEditor(v, editIdx);
+        }
+      });
+      return;
+    }
+    const editMode = typeof editIdx === 'number';
+    const cur = editMode ? coupons.shopCoins[editIdx] : null;
+    const initVal = cur ? cur.balance : 200;
+    const m = document.createElement('div');
+    m.className = 'modal-mask';
+    m.innerHTML = `<div class="modal" style="text-align:left">
+      <div class="modal-title" style="text-align:center">${escapeHtml(shop)} 购物金</div>
+      <div class="row gap-6" style="margin:12px 0">
+        <span class="text-sm" style="color:var(--text-tertiary);width:50px">余额</span>
+        <div class="input" style="flex:1;height:36px"><span class="prefix">¥</span><input type="number" id="cnBal" value="${initVal}"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-cancel>取消</button>
+        <button class="btn btn-primary" id="cnOk">保存</button>
+      </div>
+    </div>`;
+    document.body.appendChild(m);
+    m.addEventListener('click', (e) => {
+      if (e.target.closest('[data-cancel]') || e.target === m) { m.remove(); return; }
+      if (e.target.id === 'cnOk') {
+        const v = Number(m.querySelector('#cnBal').value);
+        if (v < 0) { ui.toast('金额不能为负数', 'error'); return; }
+        if (editMode) {
+          coupons.shopCoins[editIdx].balance = v;
+        } else {
+          coupons.shopCoins.push({ id: Date.now().toString(36), shop, balance: v });
+        }
+        m.remove();
+        render();
+      }
+    });
+  }
+
+  document.getElementById('btnSave').addEventListener('click', () => {
+    biz.saveCoupons(coupons);
+    ui.toast('保存成功', 'success');
+    setTimeout(() => location.href = 'index.html', 400);
+  });
+
+  render();
+  })();
+</script>
+</body>
+</html>

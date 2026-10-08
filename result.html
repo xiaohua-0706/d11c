@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>计算结果</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .summary-card {
+    background: var(--bg-card);
+    margin: 12px 12px 0;
+    border-radius: var(--radius-lg);
+    padding: 18px 16px;
+    box-shadow: var(--shadow-card);
+  }
+  .summary-card .row-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .summary-card .col-l { text-align: left; }
+  .summary-card .col-r { text-align: right; }
+  .summary-card .lbl { font-size: 13px; color: var(--text-tertiary); margin-bottom: 4px; }
+  .summary-card .lbl .help { color: var(--brand-blue); margin-left: 4px; }
+  .summary-card .col-r .lbl { color: var(--text-primary); }
+  .summary-card .col-r .price { font-size: 30px; font-weight: 800; color: var(--brand-red); }
+  .summary-card .saved {
+    display: inline-block;
+    background: var(--bg-green-soft);
+    color: var(--brand-green);
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-top: 4px;
+  }
+  .summary-card .col-l .price { font-size: 18px; color: var(--text-primary); font-weight: 600; }
+
+  .detail-card {
+    background: var(--bg-card);
+    margin: 12px;
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    box-shadow: var(--shadow-card);
+  }
+  .detail-card .head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .detail-card .head .right { font-size: 12px; color: var(--text-tertiary); }
+  .step-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 0;
+    border-top: 1px solid var(--border-soft-2);
+  }
+  .step-row .no {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--bg-blue-soft);
+    color: var(--brand-blue);
+    font-size: 12px;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-row.inactive .no { background: #eef0f5; color: var(--text-tertiary); }
+  .step-row .info { flex: 1; min-width: 0; }
+  .step-row .title { font-size: 14px; color: var(--text-primary); }
+  .step-row.inactive .title { color: var(--text-tertiary); }
+  .step-row .sub { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+  .step-row .badge {
+    font-size: 11px;
+    padding: 1px 6px;
+    background: var(--bg-green-soft);
+    color: var(--brand-green);
+    border-radius: 4px;
+    margin-left: 4px;
+  }
+  .step-row .badge.inactive { background: #eef0f5; color: var(--text-tertiary); }
+  .step-row .amt { font-size: 14px; color: var(--text-primary); font-weight: 600; min-width: 80px; text-align: right; }
+  .step-row .amt.red { color: var(--brand-red); }
+  .step-row .amt.gray { color: var(--text-tertiary); }
+  .step-row.gold {
+    background: var(--bg-green-soft);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-top: 4px;
+  }
+  .step-row.gold .no { background: #fff; color: var(--brand-green); border: 1px solid var(--brand-green); }
+
+  .coudan-card {
+    background: var(--bg-card);
+    margin: 12px;
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    box-shadow: var(--shadow-card);
+  }
+  .coudan-card .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .coudan-card .head .right { font-size: 12px; color: var(--text-tertiary); }
+  .coudan-card .head .right .help { color: var(--brand-blue); margin-left: 2px; }
+
+  .plan-item {
+    background: var(--bg-soft);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .plan-item .top {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 8px;
+  }
+  .plan-item .no {
+    width: 22px; height: 22px;
+    background: linear-gradient(135deg, #ff8a3d, #ff6b6b);
+    color: #fff;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .plan-item .badge-type {
+    font-size: 11px;
+    padding: 2px 8px;
+    background: var(--bg-orange-soft);
+    color: var(--brand-orange);
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .plan-item .title { flex: 1; font-size: 13px; color: var(--text-primary); }
+  .plan-item .status {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .plan-item .status.good { background: var(--bg-green-soft); color: var(--brand-green); }
+  .plan-item .status.bad { background: #eef0f5; color: var(--text-tertiary); }
+  .plan-item .rows { display: flex; flex-direction: column; gap: 4px; }
+  .plan-item .r {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px;
+  }
+  .plan-item .r .k {
+    width: 80px;
+    color: var(--brand-blue);
+    background: var(--bg-blue-soft);
+    padding: 1px 6px;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .plan-item .r .v { flex: 1; color: var(--text-primary); }
+  .plan-item .r .v .chip-mini {
+    font-size: 11px;
+    padding: 1px 6px;
+    background: var(--bg-pink-soft);
+    color: var(--brand-red);
+    border-radius: 4px;
+    margin-left: 4px;
+  }
+  .plan-item .r .v .red { color: var(--brand-red); font-weight: 600; }
+  .plan-item .r .v .green { color: var(--brand-green); font-weight: 600; }
+  .plan-item .r .v .gray { color: var(--text-tertiary); }
+  .plan-item .product-row {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-card);
+    padding: 8px;
+    border-radius: 8px;
+    margin-top: 6px;
+  }
+  .plan-item .product-row .thumb { width: 36px; height: 36px; font-size: 18px; border-radius: 6px; }
+  .plan-item .product-row .info { flex: 1; }
+  .plan-item .product-row .name { font-size: 13px; }
+  .plan-item .product-row .price { font-size: 13px; color: var(--brand-red); font-weight: 600; }
+  .plan-item .product-row .btn { padding: 6px 10px; font-size: 12px; height: auto; }
+
+  .footer-btns { display: flex; gap: 8px; padding: 12px; }
+  .footer-btns .btn { flex: 1; height: 48px; font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="nav"></div>
+  <div id="root"></div>
+  <div class="footer-btns">
+    <button class="btn btn-outline" id="btnSave">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7l3-7z" fill="currentColor"/></svg>
+      保存方案到本地
+    </button>
+    <a class="btn btn-primary" href="index.html">返回首页</a>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  (function(){
+  const { store, biz, fmt, fmtMoney, escapeHtml, renderNav, engine, coudan, ui, COUDAN_LIBRARY } = window.D11C;
+  const data = store.get();
+
+  document.getElementById('nav').innerHTML = renderNav({ title: '计算结果', back: 'index.html' });
+
+  if (data.items.length === 0) {
+    document.getElementById('root').innerHTML = `
+      <div class="card" style="text-align:center;padding:40px 20px;margin-top:20px">
+        <div style="font-size:48px">📦</div>
+        <div class="text-bold mt-12">商品列表为空</div>
+        <div class="text-sm text-gray mt-8">请先添加商品<br>开始使用凑单计算器吧~</div>
+        <a class="btn btn-primary mt-16" href="edit.html" style="width:auto;padding:10px 24px">去添加商品</a>
+      </div>`;
+    document.querySelector('.footer-btns').style.display = 'none';
+  } else {
+    const r = engine.calc(data.items, data.coupons);
+    const plans = coudan.find(data.items, r);
+
+    document.getElementById('root').innerHTML = `
+      <!-- 总览 -->
+      <div class="summary-card">
+        <div class="row-top">
+          <div class="col-l">
+            <div class="lbl">订单原价合计</div>
+            <div class="price">${fmtMoney(r.subtotal)}</div>
+          </div>
+          <div class="col-r">
+            <div class="lbl">订单实付金额<span class="help">?</span></div>
+            <div class="price">${fmtMoney(r.final)}</div>
+            <div class="saved">已节省 ${fmtMoney(r.saved)}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 价格分步明细 -->
+      <div class="detail-card">
+        <div class="head">
+          <div class="text-bold text-lg">价格分步明细</div>
+          <div class="right">共 ${r.steps.filter(s => s.status === 'active').length} 项优惠</div>
+        </div>
+        ${r.steps.map((s, i) => {
+          const isGold = i === r.steps.length - 1 && s.status === 'active' && /淘金币/.test(s.title);
+          return `
+            <div class="step-row ${s.status === 'inactive' ? 'inactive' : ''} ${isGold ? 'gold' : ''}">
+              <div class="no">${s.no}</div>
+              <div class="info">
+                <div class="title">${escapeHtml(s.title)}</div>
+                <div class="sub">${escapeHtml(s.sub)}</div>
+              </div>
+              ${s.status === 'active' ? `<span class="badge">已生效</span>` : (s.status === 'inactive' ? `<span class="badge inactive">未生效</span>` : '')}
+              <div class="amt ${s.sign === '-' ? 'red' : (s.status === 'inactive' ? 'gray' : '')}">${s.status === 'inactive' && s.amount === 0 ? '¥0.00' : (s.sign === '-' ? '−' : '') + fmtMoney(Math.abs(s.amount))}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <!-- 凑单推荐 Top3 -->
+      <div class="coudan-card">
+        <div class="head">
+          <div class="text-bold text-lg">凑单推荐方案（Top3）<span class="text-blue text-sm font-normal">?</span></div>
+          <div class="right">根据当前购物车，智能推荐更优方案</div>
+        </div>
+        ${plans.length === 0 ? `<div class="empty" style="padding:14px;font-size:13px">当前订单已较优，无需凑单 🎉</div>` : plans.map((p, i) => `
+          <div class="plan-item">
+            <div class="top">
+              <div class="no">${i + 1}</div>
+              <span class="badge-type">${p.badge}</span>
+              <div class="title">${escapeHtml(p.title)}</div>
+              <span class="status ${p.status === '推荐使用' ? 'good' : 'bad'}">${p.status}</span>
+            </div>
+            <div class="rows">
+              <div class="r">
+                <span class="k">需要新增</span>
+                <span class="v">${p.type === 'qty' ? `${p.need}件 （预计 ¥${fmt(p.product.price)} × ${p.need} = ${fmtMoney(p.extraCost)}）` : `¥${fmt(p.gap)}（可选凑单：¥${fmt(p.product.price)}起）`}</span>
+              </div>
+              <div class="r">
+                <span class="k">激活优惠</span>
+                <span class="v">${escapeHtml(p.coupon.label || (p.coupon.shop + ' ' + p.coupon.reduce + '件减' + p.coupon.reduce))}<span class="chip-mini">${p.type === 'qty' ? p.coupon.threshold + '件减' + p.coupon.reduce : ''}</span></span>
+              </div>
+              <div class="r">
+                <span class="k">凑单后实付</span>
+                <span class="v"><span class="red">${fmtMoney(r.final - p.netSaving)}</span> <span class="gray">（预计比当前 ${p.netSaving >= 0 ? '+' : ''}¥${fmt(p.netSaving)}）</span></span>
+              </div>
+              <div class="r">
+                <span class="k">预计节省</span>
+                <span class="v"><span class="${p.netSaving > 0 ? 'green' : 'gray'}">${p.netSaving > 0 ? '+' : ''}¥${fmt(p.netSaving)}</span></span>
+              </div>
+            </div>
+            <div class="product-row">
+              <div class="thumb">${p.product.emoji}</div>
+              <div class="info">
+                <div class="name">${escapeHtml(p.product.name)}</div>
+                <div class="price">${fmtMoney(p.product.price)}</div>
+              </div>
+              <a class="btn btn-outline" href="edit.html?coudan=${encodeURIComponent(p.product.name)}">从购物车选择</a>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    document.getElementById('btnSave').addEventListener('click', () => {
+      const thumbs = data.items.map(i => i.thumb || '🛍️').slice(0, 3);
+      const name = `双11方案-${data.items.length}件`;
+      biz.saveHistory({
+        id: Date.now().toString(36),
+        name,
+        time: window.D11C.nowStr(),
+        amount: r.final,
+        total: r.subtotal,
+        thumbs,
+        itemsSnapshot: JSON.parse(JSON.stringify(data.items)),
+        couponsSnapshot: JSON.parse(JSON.stringify(data.coupons)),
+      });
+      ui.alert({
+        title: '方案保存成功',
+        desc: '已保存到我的方案<br>可在历史记录中查看',
+        buttonText: '知道了',
+        icon: '✅',
+        iconClass: 'success',
+      });
+    });
+  }
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>新增商品</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .form { padding: 12px; }
+  .form-group { margin-bottom: 18px; }
+  .form-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+  .form-label .opt { color: var(--text-tertiary); font-weight: 400; font-size: 12px; margin-left: 4px; }
+  .form-hint {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+  }
+  .radio-group { display: flex; gap: 8px; }
+  .radio {
+    flex: 1;
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 12px;
+    background: var(--bg-soft);
+    border: 1px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .radio.on { background: var(--bg-blue-soft); border-color: var(--brand-blue); color: var(--brand-blue); font-weight: 500; }
+  .radio .dot {
+    width: 16px; height: 16px;
+    border: 1.5px solid #c4ccdc;
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .radio.on .dot { border-color: var(--brand-blue); }
+  .radio.on .dot::after {
+    content: '';
+    position: absolute;
+    left: 3px; top: 3px;
+    width: 8px; height: 8px;
+    background: var(--brand-blue);
+    border-radius: 50%;
+  }
+
+  .info-banner {
+    display: flex; gap: 8px; align-items: flex-start;
+    background: var(--bg-blue-soft);
+    color: var(--brand-blue);
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .info-banner .ico {
+    width: 18px; height: 18px;
+    background: var(--brand-blue);
+    color: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .row-2 { display: flex; gap: 8px; }
+  .row-2 .form-group { flex: 1; }
+
+  .preset-tag {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--brand-blue);
+    background: var(--bg-blue-soft);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+  }
+
+  .preview-block {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    box-shadow: var(--shadow-card);
+    margin: 0 12px 12px;
+  }
+  .preview-block .head { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .preview-block .head .opt { color: var(--text-tertiary); font-weight: 400; font-size: 12px; }
+  .preview-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-soft-2);
+  }
+  .preview-row:last-child { border-bottom: none; }
+  .preview-row .ico { width: 22px; height: 22px; border-radius: 6px; display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px; }
+  .preview-row .label { width: 70px; font-size: 13px; color: var(--text-secondary); }
+  .preview-row .chip-mini {
+    font-size: 12px;
+    padding: 2px 6px;
+    background: var(--bg-pink-soft);
+    color: var(--brand-red);
+    border-radius: 4px;
+  }
+  .preview-row .chip-mini.blue { background: var(--bg-blue-soft); color: var(--brand-blue); }
+  .preview-row .chip-mini.gray { background: #eef0f5; color: var(--text-tertiary); }
+  .preview-row .status { flex: 1; text-align: right; font-size: 12px; color: var(--text-tertiary); }
+  .preview-row .status.fail { color: var(--brand-red); }
+
+  .footer-btns {
+    display: flex; gap: 8px;
+    padding: 12px;
+    margin-top: 8px;
+  }
+  .footer-btns .btn { flex: 1; height: 48px; font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="nav"></div>
+  <div id="form" class="form"></div>
+  <div id="preview"></div>
+  <div class="footer-btns">
+    <button class="btn btn-outline" id="btnCancel">取消</button>
+    <button class="btn btn-primary" id="btnSave">保存商品</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  (function(){
+  const { store, biz, fmt, fmtMoney, escapeHtml, getQuery, renderNav, engine, ui, groupBy } = window.D11C;
+
+  const editId = getQuery('id');
+  const isEdit = !!editId;
+  let data = store.get();
+  let item = isEdit
+    ? { ...data.items.find(i => i.id === editId) }
+    : { name: '', price: '', shop: '', category: '', type: 'tianmao', qty: 1, presale: false, deposit: 0, depositDeduct: 0 };
+
+  document.getElementById('nav').innerHTML = renderNav({
+    title: isEdit ? '编辑商品' : '新增商品',
+    back: 'index.html',
+  });
+
+  function renderForm() {
+    document.getElementById('form').innerHTML = `
+      <div class="form-group">
+        <div class="form-label">商品名称</div>
+        <div class="input" id="iName">
+          <input type="text" placeholder="如：纯棉基础T恤" maxlength="30" value="${escapeHtml(item.name || '')}">
+          <span class="suffix text-sm text-gray"><span id="nameCnt">${(item.name || '').length}</span>/30</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">商品标价<span class="opt">（原始售价）</span></div>
+        <div class="input" id="iPrice">
+          <span class="prefix">¥</span>
+          <input type="number" inputmode="decimal" placeholder="请输入金额" value="${item.price || ''}">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">商品类型</div>
+        <div class="radio-group" id="iType">
+          <div class="radio ${item.type === 'tianmao' ? 'on' : ''}" data-val="tianmao">
+            <span class="dot"></span>
+            <span>天猫 <span class="text-sm text-gray">（官方立减15%）</span></span>
+          </div>
+          <div class="radio ${item.type === 'cshop' ? 'on' : ''}" data-val="cshop">
+            <span class="dot"></span>
+            <span>C店 <span class="text-sm text-gray">（跨店满减200-30）</span></span>
+          </div>
+        </div>
+        <div class="info-banner">
+          <div class="ico">i</div>
+          <div>C店商品无官方立减，参与跨店满减每满200减30</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="row-between">
+          <div class="form-label">是否预售</div>
+          <div class="switch ${item.presale ? 'on' : ''}" id="iPresale"></div>
+        </div>
+        ${item.presale ? `<div class="info-banner">
+          <div class="ico">i</div>
+          <div>预售商品需先支付定金，尾款会在双11期间支付</div>
+        </div>` : ''}
+      </div>
+
+      ${item.presale ? `
+      <div class="form-group">
+        <div class="form-label">定金<span class="opt">（可不填）</span></div>
+        <div class="input"><span class="prefix">¥</span>
+          <input type="number" inputmode="decimal" placeholder="请输入定金金额" id="iDeposit" value="${item.deposit || ''}">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">尾款原价<span class="opt">（可不填）</span></div>
+        <div class="input"><span class="prefix">¥</span>
+          <input type="number" inputmode="decimal" placeholder="请输入尾款原价" id="iDepositDeduct" value="${item.depositDeduct || ''}">
+        </div>
+      </div>
+      ` : ''}
+
+      <div class="form-group">
+        <div class="form-label">所属店铺</div>
+        <div class="input" id="iShop">
+          <input type="text" placeholder="请输入店铺名" maxlength="20" value="${escapeHtml(item.shop || '')}">
+          <span class="suffix text-sm text-gray"><span id="shopCnt">${(item.shop || '').length}</span>/20 ›</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">所属类目</div>
+        <div class="input" id="iCat">
+          <input type="text" placeholder="如：服饰鞋包" maxlength="20" value="${escapeHtml(item.category || '')}">
+          <span class="suffix text-sm text-gray"><span id="catCnt">${(item.category || '').length}</span>/20 ›</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">购买数量</div>
+        <div class="qty" id="iQty">
+          <button data-act="dec">−</button>
+          <input type="number" value="${item.qty || 1}" min="1" max="99">
+          <button data-act="inc">+</button>
+        </div>
+      </div>
+    `;
+    bindForm();
+    renderPreview();
+  }
+
+  function bindForm() {
+    // 名称
+    const nameInput = document.querySelector('#iName input');
+    nameInput.addEventListener('input', (e) => {
+      item.name = e.target.value;
+      document.getElementById('nameCnt').textContent = e.target.value.length;
+    });
+    // 价格
+    document.querySelector('#iPrice input').addEventListener('input', (e) => {
+      item.price = e.target.value;
+      renderPreview();
+    });
+    // 类型
+    document.querySelectorAll('#iType .radio').forEach(r => {
+      r.addEventListener('click', () => {
+        item.type = r.dataset.val;
+        document.querySelectorAll('#iType .radio').forEach(x => x.classList.remove('on'));
+        r.classList.add('on');
+        renderPreview();
+      });
+    });
+    // 预售
+    document.getElementById('iPresale').addEventListener('click', () => {
+      item.presale = !item.presale;
+      if (!item.presale) { item.deposit = 0; item.depositDeduct = 0; }
+      renderForm();
+    });
+    // 店铺
+    document.querySelector('#iShop input').addEventListener('input', (e) => {
+      item.shop = e.target.value;
+      document.getElementById('shopCnt').textContent = e.target.value.length;
+      renderPreview();
+    });
+    // 类目
+    document.querySelector('#iCat input').addEventListener('input', (e) => {
+      item.category = e.target.value;
+      document.getElementById('catCnt').textContent = e.target.value.length;
+      renderPreview();
+    });
+    // 数量
+    const qtyBox = document.getElementById('iQty');
+    const qtyInput = qtyBox.querySelector('input');
+    qtyBox.querySelector('[data-act="inc"]').addEventListener('click', () => {
+      const v = Math.min(99, Number(qtyInput.value || 1) + 1);
+      qtyInput.value = v; item.qty = v;
+    });
+    qtyBox.querySelector('[data-act="dec"]').addEventListener('click', () => {
+      const v = Math.max(1, Number(qtyInput.value || 1) - 1);
+      qtyInput.value = v; item.qty = v;
+    });
+    qtyInput.addEventListener('input', (e) => {
+      const v = Math.max(1, Math.min(99, Number(e.target.value || 1)));
+      item.qty = v;
+    });
+    if (item.presale) {
+      document.getElementById('iDeposit').addEventListener('input', (e) => { item.deposit = e.target.value; });
+      document.getElementById('iDepositDeduct').addEventListener('input', (e) => { item.depositDeduct = e.target.value; });
+    }
+  }
+
+  function renderPreview() {
+    // 模拟该商品加入后，能享受哪些优惠（门槛是否满足）
+    const coupons = data.coupons;
+    const price = Number(item.price) || 0;
+    const subtotal = price * (Number(item.qty) || 1);
+    const rows = [];
+
+    // 1. 跨店满减
+    if (item.type === 'cshop') {
+      const ok = subtotal >= 200;
+      rows.push({
+        ico: '¥', icoClass: 'ico-coin',
+        label: '跨店满减',
+        chip: { text: '每满200减30', cls: 'blue' },
+        status: ok ? '可触发' : `未达门槛（当前 ¥${fmt(subtotal)}）`,
+        fail: !ok,
+      });
+    } else {
+      rows.push({
+        ico: '¥', icoClass: 'ico-coin',
+        label: '官方立减15%',
+        chip: { text: '立减15%', cls: 'blue' },
+        status: '天猫商品专享',
+      });
+    }
+
+    // 2. 品类券
+    const cc = (coupons.catCoupons || []).find(c => c.category === item.category);
+    if (cc) {
+      const catSub = (data.items.filter(i => i.id !== editId && i.category === item.category)
+        .reduce((s, it) => s + Number(it.price || 0) * Number(it.qty || 1), 0)) + subtotal;
+      const ok = catSub >= cc.threshold;
+      rows.push({
+        ico: '🎟', icoClass: 'ico-cat',
+        label: '品类券',
+        chip: { text: `满${cc.threshold}减${cc.reduce}`, cls: '' },
+        status: ok ? `可触发（类目合计 ¥${fmt(catSub)}）` : `未达门槛（类目合计 ¥${fmt(catSub)}）`,
+        fail: !ok,
+      });
+    } else {
+      rows.push({
+        ico: '🎟', icoClass: 'ico-cat',
+        label: '品类券',
+        chip: { text: '无可用', cls: 'gray' },
+        status: '该类目未配置品类券',
+        gray: true,
+      });
+    }
+
+    // 3. 店铺券
+    const sc = (coupons.shopCoupons || []).find(c => c.shop === item.shop);
+    if (sc) {
+      const shopSub = (data.items.filter(i => i.id !== editId && i.shop === item.shop)
+        .reduce((s, it) => s + Number(it.price || 0) * Number(it.qty || 1), 0)) + subtotal;
+      const shopQty = (data.items.filter(i => i.id !== editId && i.shop === item.shop)
+        .reduce((s, it) => s + Number(it.qty || 1), 0)) + (Number(item.qty) || 1);
+      const ruleText = sc.type === 'ladder'
+        ? sc.rules.map(r => `${r.threshold}件减${r.reduce}`).join('/')
+        : sc.rules.map(r => `满${r.threshold}减${r.reduce}`).join('/');
+      const ok = sc.type === 'ladder'
+        ? shopQty >= Math.min(...sc.rules.map(r => r.threshold))
+        : shopSub >= Math.min(...sc.rules.map(r => r.threshold));
+      rows.push({
+        ico: '🏬', icoClass: 'ico-shop',
+        label: '店铺券',
+        chip: { text: ruleText, cls: '' },
+        status: ok ? '可触发' : (sc.type === 'ladder' ? `再${Math.min(...sc.rules.map(r=>r.threshold))-shopQty}件` : `再¥${fmt(Math.min(...sc.rules.map(r=>r.threshold))-shopSub)}`),
+        fail: !ok,
+      });
+    } else {
+      rows.push({
+        ico: '🏬', icoClass: 'ico-shop',
+        label: '店铺券',
+        chip: { text: '暂无可用', cls: 'gray' },
+        status: '该店铺未配置店铺券',
+        gray: true,
+      });
+    }
+
+    document.getElementById('preview').innerHTML = `
+      <div class="preview-block">
+        <div class="head">可用优惠预览<span class="opt">（根据当前配置）</span></div>
+        ${rows.map(r => `
+          <div class="preview-row">
+            <div class="ico ${r.icoClass}">${r.ico}</div>
+            <div class="label">${r.label}</div>
+            <span class="chip-mini ${r.chip.cls}">${r.chip.text}</span>
+            <div class="status ${r.fail ? 'fail' : ''}">${escapeHtml(r.status)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  document.getElementById('btnCancel').addEventListener('click', () => {
+    location.href = 'index.html';
+  });
+  document.getElementById('btnSave').addEventListener('click', () => {
+    if (!item.name) { ui.toast('请输入商品名称', 'error'); return; }
+    if (!item.price || Number(item.price) <= 0) { ui.toast('请输入正确的金额', 'error'); return; }
+    if (!item.shop) { ui.toast('请输入所属店铺', 'error'); return; }
+    if (!item.category) { ui.toast('请输入所属类目', 'error'); return; }
+    biz.saveItem({
+      id: item.id,
+      name: item.name,
+      price: Number(item.price),
+      shop: item.shop,
+      category: item.category,
+      type: item.type,
+      qty: Number(item.qty) || 1,
+      presale: item.presale,
+      deposit: item.presale ? Number(item.deposit || 0) : 0,
+      depositDeduct: item.presale ? Number(item.depositDeduct || 0) : 0,
+      thumb: window.D11C.pickThumb(item.name),
+    });
+    ui.toast(isEdit ? '已保存' : '商品已添加', 'success');
+    setTimeout(() => location.href = 'index.html', 400);
+  });
+
+  renderForm();
+  })();
+</script>
+</body>
+</html>
